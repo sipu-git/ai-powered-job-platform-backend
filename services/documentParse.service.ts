@@ -48,7 +48,6 @@ ${docText}
     const res = await model.generateContent(prompt);
     const raw = res.response.text().trim();
 
-    // 🧠 Extract JSON safely
     const json = extractJson(raw);
 
     return {
@@ -60,10 +59,10 @@ ${docText}
       experience: json.experience || ""
     };
   } catch (err) {
-    console.error("❌ Resume parsing failed:", err);
+    console.error("Resume parsing failed:", err);
 
     if (retry > 0) {
-      console.warn("🔁 Retrying resume parsing...");
+      console.warn(" Retrying resume parsing...");
       return parseDocument(docText, retry - 1);
     }
 

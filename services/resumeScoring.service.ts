@@ -15,16 +15,19 @@ export async function scoreResume(
         education: 0,
         aiMatch: 0
     };
-
+const requiredSkills = job.requiredSkills || [];
     const matchedSkills = resume.skills.filter(skill =>
-        job.requiredSkills.some(js =>
+        requiredSkills.some(js =>
             js.toLowerCase().includes(skill.toLowerCase())
         )
     );
 
+    const skillWeight = Number(job.scoringWeights.skills || 40);
+  if (requiredSkills.length > 0) {
     breakdown.skills =
-        (matchedSkills.length / job.requiredSkills.length) *
-        job.scoringWeights.skills;
+      (matchedSkills.length / requiredSkills.length) *
+      skillWeight;
+  }
 
     const years = extractYears(resume.experience);
     const minExperience = job.minExperience ? parseInt(job.minExperience) : 0;
