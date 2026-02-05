@@ -11,104 +11,60 @@ export async function scoreResume(
 
     resume = resume || ({} as ExtractInfo);
 
-    const breakdown = {
-        skills: 0,
-        experience: 0,
-        education: 0,
-        aiMatch: 0
+    const weight = {
+        skills: Number(job.scoringWeights?.skills || 0.4),
+        experience: Number(job.scoringWeights?.experience || 0.3),
+        education: Number(job.scoringWeights?.education || 0.2),
+        aiMatch: Number(job.scoringWeights?.aiMatch || 0.1)
     };
 
-    // SKILLS MATCHING
-    const requiredSkills: string[] = Array.isArray(job.requiredSkills)
-        ? job.requiredSkills
-        : [];
+    const requiredSkills: string[] = job.requiredSkills || [];
+    const resumeSkills: string[] = resume.skills || [];
+    const matchedSkills = resumeSkills.filter(skill => requiredSkills.some(convert => convert.toLowerCase().includes(skill.toLowerCase())))
 
-    const resumeSkills: string[] = Array.isArray(resume.skills)
-        ? resume.skills
-        : [];
+    const skillRatio = requiredSkills.length > 0 ? matchedSkills.length / requiredSkills.length : 0;
 
-    const matchedSkills = resumeSkills.filter(skill =>
-        requiredSkills.some(js =>
-            js.toLowerCase().includes(skill.toLowerCase())
-        )
-    );
+    const resumeExperience = extractYearsFromExperience(resume.experience || []);
+    const minExperience = job.experiences ? parseInt(job.experiences) : 0;
 
-    const skillWeight = Number(job.scoringWeights?.skills || 40);
+    const experienceRatio = minExperience <= 0 ? 1 : Math.min(resumeExperience / minExperience, 1);
 
-    if (requiredSkills.length > 0) {
-        breakdown.skills =
-            (matchedSkills.length / requiredSkills.length) *
-            skillWeight;
-    }
+    // -------- EDUCATION SCORE
 
-    // EXPERIENCE SCORING
-    const years = extractYearsFromExperience(resume.experience || []);
-    const minExperience = job.minExperience ? parseInt(job.minExperience) : 0;
-    const expWeight = Number(job.scoringWeights?.experience || 30);
-
-    if (minExperience <= 0) {
-        breakdown.experience = expWeight;
-    } else if (years >= minExperience) {
-        breakdown.experience = expWeight;
-    } else {
-        breakdown.experience =
-            (years / minExperience) * expWeight;
-    }
-
-    // EDUCATION MATCHING
     const resumeEducationText = normalizeEducation(flattenEducation(resume.education || []));
 
-    const jobEducationText = normalizeEducation(job.education || "");
+    const jobEducationText = normalizeEducation(flattenEducation(job.education || []));
+    const educationRatio = (resumeEducationText && jobEducationText && (resumeEducationText.includes(jobEducationText) || jobEducationText.includes(resumeEducationText)) ? 1 : 0)
 
-    const eduWeight = Number(job.scoringWeights?.education || 20);
-
-    if (resumeEducationText &&jobEducationText &&
-        (
-            resumeEducationText.includes(jobEducationText) ||
-            jobEducationText.includes(resumeEducationText)
-        )
-    ) {
-        breakdown.education = eduWeight;
-    } else {
-        breakdown.education = 0;
-    }
-
-    // AI MATCH SCORE
-    const aiWeight = Number(job.scoringWeights?.aiMatch || 10);
-
+    let aiRatio = 0;
     try {
-        breakdown.aiMatch = Math.min(
-            aiWeight,
-            await getAiScore(job, resume, aiWeight)
-        );
+        const rawAiScore = await getAiScore(job, resume, 100);
+        aiRatio = Math.min(rawAiScore / 100, 1);
     } catch (err) {
         console.warn("AI scoring failed, defaulting to 0");
-        breakdown.aiMatch = 0;
+        aiRatio = 0;
     }
 
-    // TOTAL + STATUS
-    const totalScore = Object.values(breakdown).reduce(
-        (a, b) => a + b,
-        0
+    const breakDownRatio = {
+        skills: Math.round(skillRatio * weight.skills * 100),
+        experience: Math.round(experienceRatio * weight.experience * 100),
+        education: Math.round(educationRatio * weight.education * 100),
+        aiMatch: Math.round(aiRatio * weight.aiMatch * 100)
+    }
+    const totalScore = Math.min(
+        100, (breakDownRatio.skills + breakDownRatio.experience + breakDownRatio.education + breakDownRatio.aiMatch)
     );
 
-    let status: "SHORTLISTED" | "REJECTED" | "REVIEW" = "REJECTED";
-    if (totalScore >= 70) status = "SHORTLISTED";
-    else if (totalScore >= 50) status = "REVIEW";
 
-    return {
-        totalScore: Math.round(totalScore),
-        status,
-        breakdown: {
-            skills: Math.round(breakdown.skills),
-            experience: Math.round(breakdown.experience),
-            education: Math.round(breakdown.education),
-            aiMatch: Math.round(breakdown.aiMatch)
-        }
-    };
+    let status: "submitted" | "Reviewing" | "Shortlisted" | "rejected" | "hired" = "submitted";
+
+    if (totalScore >= 70) status = "Shortlisted";
+    else if (totalScore >= 50) status = "Reviewing";
+    else status = "rejected";
+
+    return { totalScore, status, breakDownRatio };
 }
 
-// Extract years from structured experience array
 function extractYearsFromExperience(
     experience: {
         company: string;
@@ -135,49 +91,48 @@ function extractYearsFromExperience(
 
 // Convert education objects into searchable text
 function flattenEducation(
-  education: any
+    education: any
 ): string {
-  if (typeof education === "string") {
-    return education;
-  }
-  if (!Array.isArray(education)) {
-    return "";
-  }
-  return education
-    .map((e) => {
-      if (!e || typeof e !== "object") return "";
+    if (typeof education === "string") {
+        return education;
+    }
+    if (!Array.isArray(education)) {
+        return "";
+    }
+    return education
+        .map((e) => {
+            if (!e || typeof e !== "object") return "";
 
-      return `${e.course || ""} ${e.schoolOrCollege || ""}`;
-    })
-    .join(" ")
-    .trim();
+            return `${e.course || ""} ${e.schoolOrCollege || ""}`;
+        })
+        .join(" ")
+        .trim();
 }
 
 function normalizeEducation(text: string) {
-  return text
-    .toLowerCase()
-    // Engineering / Tech
-    .replace(/b\.?tech/g, "bachelor of technology")
-    .replace(/m\.?tech/g, "master of technology")
-    .replace(/b\.?e/g, "bachelor of engineering")
-    // Computer / IT
-    .replace(/bca/g, "bachelor of computer application")
-    .replace(/mca/g, "master of computer application")
-    .replace(/cse/g, "computer science")
-    .replace(/cs/g, "computer science")
-    .replace(/it/g, "information technology")
-    // Business / Arts
-    .replace(/bba/g, "bachelor of business administration")
-    .replace(/mba/g, "master of business administration")
-    .replace(/ba/g, "bachelor of arts")
-    .replace(/ma/g, "master of arts")
+    return text
+        .toLowerCase()
+        // Engineering / Tech
+        .replace(/b\.?tech/g, "bachelor of technology")
+        .replace(/m\.?tech/g, "master of technology")
+        .replace(/b\.?e/g, "bachelor of engineering")
+        // Computer / IT
+        .replace(/bca/g, "bachelor of computer application")
+        .replace(/mca/g, "master of computer application")
+        .replace(/cse/g, "computer science")
+        .replace(/cs/g, "computer science")
+        .replace(/it/g, "information technology")
+        // Business / Arts
+        .replace(/bba/g, "bachelor of business administration")
+        .replace(/mba/g, "master of business administration")
+        .replace(/ba/g, "bachelor of arts")
+        .replace(/ma/g, "master of arts")
 
-    // Cleanup
-    .replace(/[^a-z\s]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+        // Cleanup
+        .replace(/[^a-z\s]/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
 }
-
 
 function parseYear(value?: string): number | null {
     if (!value) return null;
@@ -185,7 +140,8 @@ function parseYear(value?: string): number | null {
     const match = value.match(/\d{4}/);
     return match ? parseInt(match[0]) : null;
 }
-// AI SCORING
+
+// ---------------- AI SCORING ----------------
 async function getAiScore(
     job: any,
     resume: ExtractInfo,

@@ -3,16 +3,37 @@ import dotenv from 'dotenv';
 import DocRoutes from './routes/career.routes';
 import cors from 'cors';
 import { connectDB } from './configs/db.config';
+import { createServer } from 'http';
+import { initSocket } from './configs/socket';
+import adminRoutes from './routes/admin.routes';
 
 dotenv.config()
 const app = express()
 app.use(express.json())
-app.use(cors())
+
+app.use(
+  cors({
+    origin: ["http://localhost:8080", "http://localhost:5000", "http://localhost:3000", "http://localhost:5173"],
+    credentials: true,
+    methods: ["POST", "GET", "PUT", "DELETE"]
+  })
+);
 app.use("/api/career", DocRoutes)
+app.use("/api/admin",adminRoutes)
+
+app.get("/health", (_, res) => {
+  res.json({
+    status: "OK",
+    socket: "active",
+    timestamp: new Date().toISOString(),
+  });
+});
 
 connectDB()
 const PORT = process.env.PORT || 5000;
+const server = createServer(app)
+initSocket(server)
 
-app.listen(PORT, () => {
-    console.log(`The server is running on PORT ${PORT}`);
+server.listen(PORT, () => {
+  console.log(`The server is running with Socket on PORT ${PORT}`);
 })

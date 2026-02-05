@@ -8,6 +8,7 @@ import { JobModel } from "../models/jobs.model";
 import { notifyCandidate } from "../services/notification.service";
 import { buildScoringResume, normalizeEducation, normalizeExperience } from "../lib/normalizedData";
 import type { Request, Response } from "express";
+import mongoose from "mongoose";
 
 export const parseResume = async (req: any, res: any) => {
   try {
@@ -129,11 +130,20 @@ export const applyForJob = async (req: Request, res: Response) => {
     const application = await ApplicationModel.create({
       documentId: savedData.documentId,
       jobId,
+      applicantName: safeFormData.name,
       applicantEmail: safeFormData.email,
       score: result.totalScore,
-      breakdown: result.breakdown,
+      breakdown: result.breakDownRatio,
       status:
-        result.status === "SHORTLISTED" ? "Shortlisted" : result.status === "REJECTED" ? "rejected" : "Reviewing"
+        result.status === "Shortlisted" ? "Shortlisted" : result.status === "rejected" ? "rejected" : "Reviewing",
+      resumeData: {
+        name: safeFormData.name,
+        email: safeFormData.email,
+        phone: safeFormData.phone,
+        skills: safeFormData.skills,
+        education: safeFormData.education,
+        experience: safeFormData.experience
+      }
     });
 
     // EMAIL
@@ -162,15 +172,67 @@ export const applyForJob = async (req: Request, res: Response) => {
   }
 };
 
+export const viewRecentApplications = async (req: Request, res: Response) => {
+  try {
+    const limitApplications = Number(req.query.limit) || 3;
+    const findRecentJobs = await ApplicationModel.find().populate("jobId", "title department").sort({ appliedDate: -1, createdAt: -1 }).limit(limitApplications)
+    return res.status(200).json({
+      message: "Recent applications fetched successfully",
+      data: findRecentJobs
+    });
+  } catch (error) {
+    console.error("Error fetching recent applications", error);
+    return res.status(500).json({
+      message: "Failed to fetch recent applications",
+      error
+    });
+  }
+}
+export const deleteApplication = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({ message: "ID is required!" })
+    }
+    const findAppAndDelete = await ApplicationModel.findByIdAndDelete(id).sort({ created: -1 })
+    if (!findAppAndDelete) {
+      return res.status(404).json({ message: "Application not found" })
+    }
+    return res.status(200).json({ message: "Application removed successfully!", data: findAppAndDelete })
+  } catch (error) {
+    console.error("Error fetching recent applications", error);
+    return res.status(500).json({
+      message: "Failed to fetch recent applications",
+      error
+    });
+
+  }
+}
+
+export const viewApplicationsByJob = async (req: Request, res: Response) => {
+  try {
+    const { jobId } = req.query;
+    const findApplications = await ApplicationModel.find({ jobId: new mongoose.Types.ObjectId(jobId as string) }).populate("jobId").sort({ appliedDate: -1 })
+    return res.status(200).json({ message: "Application fetched successfully", data: findApplications || [] })
+  } catch (error) {
+    console.error("Error fetching recent applications", error);
+    return res.status(500).json({
+      message: "Failed to fetch recent applications",
+      error
+    });
+
+  }
+}
+
 export const viewApplication = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     if (!id) {
       return res.status(400).json({ message: "Application ID is required!" })
     }
-    const findApplication = await ApplicationModel.findById(id);
-    if(!findApplication){
-      return res.status(404).json({message:"Applications record doesn't exist!"})
+    const findApplication = await ApplicationModel.findById(id).populate("jobId").sort({ appliedDate: -1, createdAt: -1 });
+    if (!findApplication) {
+      return res.status(404).json({ message: "Applications record doesn't exist!" })
     }
     return res.status(200).json({ message: "Application found successfully", data: findApplication })
   } catch (error) {
@@ -181,11 +243,11 @@ export const viewApplication = async (req: Request, res: Response) => {
 }
 export const viewApplications = async (req: Request, res: Response) => {
   try {
-    const findApplications = await ApplicationModel.find().sort({createdAt:-1})
+    const findApplications = await ApplicationModel.find().populate("jobId", "title department").sort({ appliedDate: -1, createdAt: -1 })
     if (!findApplications || findApplications.length === 0) {
       return res.status(404).json({ message: "Applications not found" })
     }
-    return res.status(200).json({ message: "Applications found successfully!",data:findApplications })
+    return res.status(200).json({ message: "Applications found successfully!", data: findApplications })
   } catch (error) {
     console.error("Internal server error");
     return res.status(500).json({ message: "Internal server issue", error })
