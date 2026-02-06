@@ -13,8 +13,8 @@ app.use(express.json());
 
 app.use(
   cors({
-    origin:"*",
-allowedHeaders: ["Content-Type", "Authorization"]
+    origin: "*",
+    allowedHeaders: ["Content-Type", "Authorization"],
     methods: ["POST", "GET", "PUT", "DELETE"]
   })
 );
