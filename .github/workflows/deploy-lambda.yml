@@ -28,7 +28,7 @@ jobs:
         run: |
           bun install
 
-      # 🔥 THIS IS THE FIX
+      # THIS IS THE FIX
       - name: Build Lambda bundle (FULLY BUNDLED)
         run: |
           bun build index.mjs \
@@ -39,7 +39,7 @@ jobs:
 
       - name: Zip Lambda package
         run: |
-          zip -r function.zip dist
+          zip -r function.zip .
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
