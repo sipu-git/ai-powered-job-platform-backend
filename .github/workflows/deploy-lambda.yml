@@ -9,13 +9,13 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: Deploy ATS Backend
-    
+
     steps:
       # Checkout repo
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # (Optional but clean) Match Lambda runtime
+      # Match Lambda runtime (optional but good)
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -27,19 +27,22 @@ jobs:
         with:
           bun-version: latest
 
-      # install dependencies (ROOT)
+      # Install dependencies
       - name: Install dependencies
         run: |
           bun install --production
 
-      # Zip Lambda package (ROOT-based)
+      # Build Lambda bundle with Bun
+      - name: Build Lambda bundle with Bun
+        run: |
+          bun build index.mjs \
+            --target=node \
+            --outfile=dist/index.mjs
+
+      # Zip ONLY the bundle
       - name: Zip Lambda package
         run: |
-          zip -r function.zip \
-            index.mjs \
-            package.json \
-            node_modules \
-            configs controllers lib models routes services
+          zip -r function.zip dist
 
       # Configure AWS credentials
       - name: Configure AWS credentials
@@ -49,7 +52,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      # Deploy to Lambda
+      # Deploy to AWS Lambda
       - name: Deploy to AWS Lambda
         run: |
           aws lambda update-function-code \
