@@ -1,15 +1,14 @@
 import serverless from "serverless-http";
 import type { APIGatewayProxyEventV2, Context } from "aws-lambda";
-import app from "./app";
 import type { Request } from "express";
 
+import app, { initApp } from "./app";
 const serverlessHandler = serverless(app, {
-  request: (req:Request, event: APIGatewayProxyEventV2) => {
-    if (event.rawPath && event.requestContext?.stage) {
-      const stagePrefix = `/${event.requestContext.stage}`;
-      if (event.rawPath.startsWith(stagePrefix)) {
-        req.url = event.rawPath.replace(stagePrefix, "") || "/";
-      }
+  request: (req: Request, event: APIGatewayProxyEventV2) => {
+    const stage = event.requestContext?.stage;
+
+    if (stage && event.rawPath.startsWith(`/${stage}`)) {
+      req.url = event.rawPath.replace(`/${stage}`, "") || "/";
     }
   }
 });
@@ -19,5 +18,7 @@ export const lambdaHandler = async (
   context: Context
 ) => {
   context.callbackWaitsForEmptyEventLoop = false;
+  await initApp();
+
   return serverlessHandler(event, context);
 };
