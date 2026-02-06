@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 import serverless from "serverless-http";
 import DocRoutes from "./routes/career.routes";
 import adminRoutes from "./routes/admin.routes";
-import { connectDB } from "./configs/db.config";
+// import { connectDB } from "./configs/db.config";
 
 dotenv.config();
 
@@ -25,12 +25,12 @@ app.get("/health", (_, res) => {
   res.json({ status: "OK" });
 });
 
-let dbConnected = false;
+// let dbConnected = false;
 export const handler = serverless(app, {
   request: async () => {
-    if (!dbConnected) {
-      await connectDB();
-      dbConnected = true;
-    }
+    // if (!dbConnected) {
+    //   await connectDB();
+    //   dbConnected = true;
+    // }
   }
 });
