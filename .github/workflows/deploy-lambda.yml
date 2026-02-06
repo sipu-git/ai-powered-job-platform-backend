@@ -24,16 +24,11 @@ jobs:
         with:
           bun-version: latest
 
-      # 🔑 MOVE INTO server/ DIRECTORY
       - name: Install dependencies
-        run: |
-          cd server
-          bun install
+        run: bun install
 
-      # 🔑 BUILD THE CORRECT HANDLER FILE
       - name: Build Lambda bundle (TypeScript)
         run: |
-          cd server
           bun build handler.ts \
             --target=node \
             --bundle \
@@ -43,8 +38,8 @@ jobs:
 
       - name: Zip Lambda package
         run: |
-          cd server/dist
-          zip -r ../../function.zip .
+          cd dist
+          zip -r ../function.zip .
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
