@@ -2,16 +2,11 @@ import express, { type Request, type Response } from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 
-import DocRoutes from "./routes/career.routes";
-import adminRoutes from "./routes/admin.routes";
-import { connectDB } from "./configs/db.config";
-
 dotenv.config();
 
 const app = express();
 
 app.use(express.json());
-
 app.use(
   cors({
     origin: "*",
@@ -19,9 +14,6 @@ app.use(
     methods: ["POST", "GET", "PUT", "DELETE"]
   })
 );
-
-app.use("/api/career", DocRoutes);
-app.use("/api/admin", adminRoutes);
 
 app.get("/health", (_req: Request, res: Response) => {
   res.status(200).json({
@@ -31,15 +23,12 @@ app.get("/health", (_req: Request, res: Response) => {
   });
 });
 
-let isConnected = false;
+export const mountRoutes = async () => {
+  const { default: DocRoutes } = await import("./routes/career.routes");
+  const { default: adminRoutes } = await import("./routes/admin.routes");
 
-export const initApp = async () => {
-  if (!isConnected) {
-    console.log("⏳ Connecting to DB...");
-    await connectDB();
-    isConnected = true;
-    console.log("✅ DB connected (Lambda cold start)");
-  }
+  app.use("/api/career", DocRoutes);
+  app.use("/api/admin", adminRoutes);
 };
 
 export default app;
