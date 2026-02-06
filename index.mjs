@@ -1,13 +1,12 @@
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
 import serverless from "serverless-http";
-import DocRoutes from "./routes/career.routes";
-import adminRoutes from "./routes/admin.routes";
 
-dotenv.config();
+import DocRoutes from "./routes/career.routes.js";
+import adminRoutes from "./routes/admin.routes.js";
 
 const app = express();
+
 app.use(express.json());
 
 app.use(
@@ -17,11 +16,12 @@ app.use(
   })
 );
 
+/* Routes */
 app.use("/api/career", DocRoutes);
 app.use("/api/admin", adminRoutes);
 
-app.get("/health", (_, res) => {
-  res.json({ status: "OK" });
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "OK" });
 });
 
 export const handler = serverless(app);
