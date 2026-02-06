@@ -39,7 +39,7 @@ jobs:
 
       - name: Zip Lambda package
         run: |
-          zip -r function.zip .
+          zip -r function.zip dist package.json.
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
