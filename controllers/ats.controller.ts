@@ -32,7 +32,7 @@ export const viewAtsScore = async (req: Request, res: Response) => {
         }
         const attachResume = await RawDataModel.findOne({ documentId: record.documentId }).select("originalFileName skills education experience createdAt").lean()
         return res.status(200).json({
-            message: "ATS Score fetched", jobId,
+            message: "ATS Score fetched successfully", jobId,
             applicantEmail: email,
             score: record.score,
             status: record.status,
