@@ -6,15 +6,7 @@ import app, { mountRoutes } from "./app";
 import { connectDB } from "./configs/db.config";
 
 let initialized = false;
-
-const serverlessHandler = serverless(app, {
-  request: (req: Request, event: APIGatewayProxyEventV2) => {
-    const stage = event.requestContext?.stage;
-    if (stage && event.rawPath.startsWith(`/${stage}`)) {
-      req.url = event.rawPath.replace(`/${stage}`, "") || "/";
-    }
-  }
-});
+let handler: any;
 
 export const lambdaHandler = async (
   event: APIGatewayProxyEventV2,
@@ -22,13 +14,23 @@ export const lambdaHandler = async (
 ) => {
   context.callbackWaitsForEmptyEventLoop = false;
 
-  if (!initialized && !event.rawPath.endsWith("/health")) {
-    console.log("⏳ Initializing app (cold start)");
+  if (!initialized) {
+    console.log("⏳ Lambda cold start – initializing app");
+
     await connectDB();
     await mountRoutes();
+    handler = serverless(app, {
+      request: (req: Request, event: APIGatewayProxyEventV2) => {
+        const stage = event.requestContext?.stage;
+        if (stage && event.rawPath.startsWith(`/${stage}`)) {
+          req.url = event.rawPath.replace(`/${stage}`, "") || "/";
+        }
+      }
+    });
+
     initialized = true;
-    console.log("✅ App initialized");
+    console.log("✅ App fully initialized");
   }
 
-  return serverlessHandler(event, context);
+  return handler(event, context);
 };
